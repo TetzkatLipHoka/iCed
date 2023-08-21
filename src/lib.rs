@@ -23,7 +23,7 @@ pub unsafe extern "C" fn IcedFreeMemory( Pointer: *mut Decoder ) -> bool {
         return false;
     }
 
-    Box::from_raw( Pointer );
+    drop( Box::from_raw( Pointer ) );
     return true;
 }
 
