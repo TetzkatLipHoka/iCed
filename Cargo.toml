@@ -1,6 +1,6 @@
 [package]
 name = "Iced"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 build = "build.rs"
 
@@ -12,20 +12,20 @@ crate-type = ["cdylib"]      # Creates dynamic lib
 
 [package.metadata.winres]
 FileDescription = ""
-FileVersion = "1.0.3.0"
+FileVersion = "1.0.4.0"
 ProductName = "Iced"
-ProductVersion = "1.2.0.0"
+ProductVersion = "1.2.1.0"
 OriginalFilename = "Iced.dll"
-LegalCopyright = "TetzkatLipHoka © 2022-2023"
+LegalCopyright = "TetzkatLipHoka © 2022-2024"
 
 [dependencies]
-libc = "0.2"
+libc = "0.2.152"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
 
 [dependencies.iced-x86]
-version = "1.20.0"
+version = "1.21.0"
 default-features = false
 #features = ["std", "decoder", "encoder", "block_encoder", "op_code_info", "instr_info", "gas", "intel", "masm", "nasm", "fast_fmt", "code_asm", "mvex"]
 features = ["std", "decoder", "encoder", "block_encoder", "op_code_info", "instr_info", "gas", "intel", "masm", "nasm", "fast_fmt", "mvex"]
