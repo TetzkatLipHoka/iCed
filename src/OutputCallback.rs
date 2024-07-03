@@ -10,7 +10,7 @@
 
 use iced_x86::{FormatterOutput, FormatterTextKind};
 use std::{str, ptr::null_mut};
-use libc::{c_char};
+use libc::c_char;
 use std::ffi::CString;
 
 // Formatter Output Callback

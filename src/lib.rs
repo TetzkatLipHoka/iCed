@@ -11,37 +11,45 @@ extern crate libc;
 
 mod FreeMemory;
 mod Mnemonic;
-mod OpCodeInfo;
 mod Code;
 mod Register;
 mod OpKind;
-mod EncodingKind;
+mod RoundingControl;
+mod MemorySize;
+mod CodeSize;
+mod Instruction;
+
+mod OpCodeInfo;
+mod MandatoryPrefix;
+mod OpCodeOperandKind;
+mod OpCodeTableKind;
+
 mod CPUIdFeature;
 mod ConditionCode;
 mod FlowControl;
-mod TupleType;
+mod OpAccess;
+mod InstructionInfoFactory;
+
 mod MvexEHBit;
 mod MvexTupleTypeLutKind;
 mod MvexConvFn;
 mod MvexRegMemConv;
-mod RoundingControl;
-mod MemorySize;
-mod MandatoryPrefix;
-mod OpCodeOperandKind;
-mod OpAccess;
-mod OpCodeTableKind;
-mod CodeSize;
-mod FormatterTextKind;
-mod NumberBase;
+
 mod RepPrefixKind;
-mod MemorySizeOptions;
-mod Instruction;
 mod InstructionWith;
-mod InstructionInfoFactory;
+
+mod EncodingKind;
+mod TupleType;
 mod DecoderError;
 mod Decoder;
+
 mod Encoder;
+
 mod BlockEncoder;
+
+mod FormatterTextKind;
+mod NumberBase;
+mod MemorySizeOptions;
 
 mod SymbolResolver;
 mod OptionsProvider;

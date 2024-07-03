@@ -1,7 +1,14 @@
 [package]
 name = "Iced"
-version = "1.0.5"
+version = "1.0.6"
+license = "MIT"
+description = "iced-x86 is a blazing fast and correct x86/x64 disassembler, assembler and instruction decoder written in Rust and compiled to WebAssembly"
+homepage = "https://github.com/TetzkatLipHoka/iCed"
+repository = "https://github.com/TetzkatLipHoka/iCed"
+readme = "README.md"
+keywords = ["disassembler", "delphi", "pascal", "assembler", "x86", "amd64"]
 edition = "2021"
+rust-version = "1.60.0"
 build = "build.rs"
 
 [lib]
@@ -12,14 +19,14 @@ crate-type = ["cdylib"]      # Creates dynamic lib
 
 [package.metadata.winres]
 FileDescription = ""
-FileVersion = "1.0.5.0"
+FileVersion = "1.0.6.0"
 ProductName = "Iced"
 ProductVersion = "1.2.1.0"
 OriginalFilename = "Iced.dll"
 LegalCopyright = "TetzkatLipHoka © 2022-2024"
 
 [dependencies]
-libc = "0.2.152"
+libc = "0.2.155"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"

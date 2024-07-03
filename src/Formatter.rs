@@ -5,8 +5,12 @@
     TetzkatLipHoka 2022-2024
 */
 
-use iced_x86::{Instruction, Formatter, MasmFormatter, NasmFormatter, GasFormatter, IntelFormatter};
+use iced_x86::{Instruction, Formatter};
 use crate::OutputCallback::TFormatterOutput;
+use crate::MasmFormatter::TMasmFormatter;
+use crate::NasmFormatter::TNasmFormatter;
+use crate::GasFormatter::TGasFormatter;
+use crate::IntelFormatter::TIntelFormatter;
 use crate::FastFormatter::TFastFormatter;
 use crate::SpecializedFormatter::TSpecializedFormatter;
 use std::{slice, str};
@@ -26,7 +30,7 @@ enum TFormatterType {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_Format( Formatter: *mut MasmFormatter, FormatterType : u8, Instruction: *mut Instruction, Output : *mut u8, Size : usize ) {     
+pub unsafe extern "C" fn Formatter_Format( Formatter: *mut u8, FormatterType : u8, Instruction: *mut Instruction, Output : *mut *const u8, Size : *mut usize ) {    
     if Formatter.is_null() {
         return;
     }
@@ -36,62 +40,73 @@ pub unsafe extern "C" fn Formatter_Format( Formatter: *mut MasmFormatter, Format
     if Output.is_null() {
         return;
     }
-    if Size <= 0 {
+    if Size.is_null() {
         return;
     }
 
-    let mut output = String::new();
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.format( Instruction.as_mut().unwrap(), &mut output );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Output.clear();
+            obj.Formatter.format( Instruction.as_mut().unwrap(), &mut obj.Output );
+            (*Output) = obj.Output.as_ptr(); 
+            (*Size) = obj.Output.len(); 
+            *obj.Output.as_mut_ptr().add(obj.Output.len()) = 0;
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.format( Instruction.as_mut().unwrap(), &mut output );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Output.clear();
+            obj.Formatter.format( Instruction.as_mut().unwrap(), &mut obj.Output );
+            (*Output) = obj.Output.as_ptr(); 
+            (*Size) = obj.Output.len(); 
+            *obj.Output.as_mut_ptr().add(obj.Output.len()) = 0;
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.format( Instruction.as_mut().unwrap(), &mut output );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Output.clear();
+            obj.Formatter.format( Instruction.as_mut().unwrap(), &mut obj.Output );
+            (*Output) = obj.Output.as_ptr(); 
+            (*Size) = obj.Output.len(); 
+            *obj.Output.as_mut_ptr().add(obj.Output.len()) = 0;
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.format( Instruction.as_mut().unwrap(), &mut output );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Output.clear();
+            obj.Formatter.format( Instruction.as_mut().unwrap(), &mut obj.Output );
+            (*Output) = obj.Output.as_ptr(); 
+            (*Size) = obj.Output.len(); 
+            *obj.Output.as_mut_ptr().add(obj.Output.len()) = 0;
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.format( Instruction.as_mut().unwrap(), &mut output );
+            obj.Output.clear();
+            obj.Formatter.format( Instruction.as_mut().unwrap(), &mut obj.Output );
+            (*Output) = obj.Output.as_ptr(); 
+            (*Size) = obj.Output.len(); 
+            *obj.Output.as_mut_ptr().add(obj.Output.len()) = 0;
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.format( Instruction.as_mut().unwrap(), &mut output );
+            obj.Output.clear();
+            obj.Formatter.format( Instruction.as_mut().unwrap(), &mut obj.Output );
+            (*Output) = obj.Output.as_ptr(); 
+            (*Size) = obj.Output.len(); 
+            *obj.Output.as_mut_ptr().add(obj.Output.len()) = 0;
             Box::into_raw( obj );
         }
-//        _ => { return; }
+//        _ => { return;}
     }
-
-    let mut l = output.len();
-    if l > Size {
-        l = Size;
-    }
-    
-    if l > 0 {
-        for i in 0..l {
-            *( Output.add( i ) ) = output.as_bytes()[ i ];        
-        }
-    }
-    *( Output.add( l ) ) = 0;
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_FormatCallback( Formatter: *mut MasmFormatter, FormatterType : u8, Instruction: *mut Instruction, FormatterOutput : *mut TFormatterOutput ) {     
+pub unsafe extern "C" fn Formatter_FormatCallback( Formatter: *mut u8, FormatterType : u8, Instruction: *mut Instruction, FormatterOutput : *mut TFormatterOutput ) {     
     if Formatter.is_null() {
         return;
     }
@@ -106,29 +121,29 @@ pub unsafe extern "C" fn Formatter_FormatCallback( Formatter: *mut MasmFormatter
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
             let mut output = Box::from_raw( FormatterOutput );
-            obj.format( Instruction.as_mut().unwrap(), output.as_mut() );
+            obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
             let mut output = Box::from_raw( FormatterOutput );
-            obj.format( Instruction.as_mut().unwrap(), output.as_mut() );
+            obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
             Box::into_raw( obj );
             Box::into_raw( output );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
             let mut output = Box::from_raw( FormatterOutput );
-            obj.format( Instruction.as_mut().unwrap(), output.as_mut() );
+            obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
             Box::into_raw( obj );
             Box::into_raw( output );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
             let mut output = Box::from_raw( FormatterOutput );
-            obj.format( Instruction.as_mut().unwrap(), output.as_mut() );
+            obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
             Box::into_raw( obj );
             Box::into_raw( output );
         }
@@ -136,19 +151,19 @@ pub unsafe extern "C" fn Formatter_FormatCallback( Formatter: *mut MasmFormatter
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
             let mut output = Box::from_raw( FormatterOutput );
-            obj.format( Instruction.as_mut().unwrap(), output.as_mut() );
+            obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
             Box::into_raw( obj );
             Box::into_raw( output );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
             let mut output = Box::from_raw( FormatterOutput );
-            obj.format( Instruction.as_mut().unwrap(), output.as_mut() );
+            obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
             Box::into_raw( obj );
             Box::into_raw( output );
         }
  */
-        _ => { return; }
+        _ => { return;}
     }    
 }
 
@@ -159,48 +174,48 @@ pub unsafe extern "C" fn Formatter_FormatCallback( Formatter: *mut MasmFormatter
 // _ | `true` | `REP stosd`
 // 👍 | `false` | `rep stosd`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUpperCasePrefixes( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUpperCasePrefixes( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
 
-    let value: bool;    
+    let value: bool;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_prefixes();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_prefixes();
+            value = obj.Formatter.options_mut().uppercase_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_prefixes();
+            value = obj.Formatter.options_mut().uppercase_prefixes();
             Box::into_raw( obj );
         }
  */     
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -217,7 +232,7 @@ pub unsafe extern "C" fn Formatter_GetUpperCasePrefixes( Formatter: *mut MasmFor
 //
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUpperCasePrefixes( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUpperCasePrefixes( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -226,38 +241,38 @@ pub unsafe extern "C" fn Formatter_SetUpperCasePrefixes( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_prefixes( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_prefixes( Value );
+            obj.Formatter.options_mut().set_uppercase_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_prefixes( Value );
+            obj.Formatter.options_mut().set_uppercase_prefixes( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -270,48 +285,48 @@ pub unsafe extern "C" fn Formatter_SetUpperCasePrefixes( Formatter: *mut MasmFor
 // _ | `true` | `MOV rcx,rax`
 // 👍 | `false` | `mov rcx,rax`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUpperCaseMnemonics( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUpperCaseMnemonics( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
 
-    let value: bool;    
+    let value: bool;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_mnemonics();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_mnemonics();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_mnemonics();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_mnemonics();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_mnemonics();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_mnemonics();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_mnemonics();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_mnemonics();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_mnemonics();
+            value = obj.Formatter.options_mut().uppercase_mnemonics();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_mnemonics();
+            value = obj.Formatter.options_mut().uppercase_mnemonics();
             Box::into_raw( obj );
         }
  */     
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -327,7 +342,7 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseMnemonics( Formatter: *mut MasmFo
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUpperCaseMnemonics( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUpperCaseMnemonics( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -336,38 +351,38 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseMnemonics( Formatter: *mut MasmFo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_mnemonics( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_mnemonics( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_mnemonics( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_mnemonics( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_mnemonics( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_mnemonics( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_mnemonics( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_mnemonics( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_mnemonics( Value );
+            obj.Formatter.options_mut().set_uppercase_mnemonics( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_mnemonics( Value );
+            obj.Formatter.options_mut().set_uppercase_mnemonics( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -380,7 +395,7 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseMnemonics( Formatter: *mut MasmFo
 // _ | `true` | `mov RCX,[ RAX+RDX*8 ]`
 // 👍 | `false` | `mov rcx,[ rax+rdx*8 ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUpperCaseRegisters( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUpperCaseRegisters( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -390,38 +405,38 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseRegisters( Formatter: *mut MasmFo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_registers();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_registers();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_registers();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_registers();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_registers();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_registers();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_registers();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_registers();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_registers();
+            value = obj.Formatter.options_mut().uppercase_registers();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_registers();
+            value = obj.Formatter.options_mut().uppercase_registers();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -437,7 +452,7 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseRegisters( Formatter: *mut MasmFo
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUpperCaseRegisters( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUpperCaseRegisters( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -446,38 +461,38 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseRegisters( Formatter: *mut MasmFo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_registers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_registers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_registers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_registers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_registers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_registers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_registers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_registers( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_registers( Value );
+            obj.Formatter.options_mut().set_uppercase_registers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_registers( Value );
+            obj.Formatter.options_mut().set_uppercase_registers( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -490,7 +505,7 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseRegisters( Formatter: *mut MasmFo
 // _ | `true` | `mov BYTE PTR [ rcx ],12h`
 // 👍 | `false` | `mov byte ptr [ rcx ],12h`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUpperCaseKeyWords( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUpperCaseKeyWords( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -500,38 +515,38 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseKeyWords( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_keywords();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_keywords();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_keywords();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_keywords();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_keywords();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_keywords();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_keywords();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_keywords();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_keywords();
+            value = obj.Formatter.options_mut().uppercase_keywords();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_keywords();
+            value = obj.Formatter.options_mut().uppercase_keywords();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -547,7 +562,7 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseKeyWords( Formatter: *mut MasmFor
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUpperCaseKeyWords( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUpperCaseKeyWords( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -556,38 +571,38 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseKeyWords( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_keywords( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_keywords( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_keywords( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_keywords( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_keywords( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_keywords( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_keywords( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_keywords( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_keywords( Value );
+            obj.Formatter.options_mut().set_uppercase_keywords( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_keywords( Value );
+            obj.Formatter.options_mut().set_uppercase_keywords( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -600,7 +615,7 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseKeyWords( Formatter: *mut MasmFor
 // _ | `true` | `vunpcklps xmm2{k5}{Z},xmm6,dword bcst [ rax+4 ]`
 // 👍 | `false` | `vunpcklps xmm2{k5}{z},xmm6,dword bcst [ rax+4 ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUpperCaseDecorators( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUpperCaseDecorators( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -610,38 +625,38 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseDecorators( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => { 
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_decorators();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_decorators();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_decorators();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_decorators();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_decorators();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_decorators();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_decorators();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_decorators();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_decorators();
+            value = obj.Formatter.options_mut().uppercase_decorators();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_decorators();
+            value = obj.Formatter.options_mut().uppercase_decorators();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -657,7 +672,7 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseDecorators( Formatter: *mut MasmF
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUpperCaseDecorators( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUpperCaseDecorators( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -666,38 +681,38 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseDecorators( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_decorators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_decorators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_decorators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_decorators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_decorators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_decorators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_decorators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_decorators( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_decorators( Value );
+            obj.Formatter.options_mut().set_uppercase_decorators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_decorators( Value );
+            obj.Formatter.options_mut().set_uppercase_decorators( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -710,7 +725,7 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseDecorators( Formatter: *mut MasmF
 // _ | `true` | `MOV EAX,GS:[ RCX*4+0ffh ]`
 // 👍 | `false` | `mov eax,gs:[ rcx*4+0ffh ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUpperCaseEverything( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUpperCaseEverything( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -720,38 +735,38 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseEverything( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_all();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_all();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_all();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_all();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_all();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_all();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_all();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_all();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_all();
+            value = obj.Formatter.options_mut().uppercase_all();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_all();
+            value = obj.Formatter.options_mut().uppercase_all();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -768,7 +783,7 @@ pub unsafe extern "C" fn Formatter_GetUpperCaseEverything( Formatter: *mut MasmF
 //
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUpperCaseEverything( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUpperCaseEverything( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -777,38 +792,38 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseEverything( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_all( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_all( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_all( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_all( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_all( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_all( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_all( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_all( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_all( Value );
+            obj.Formatter.options_mut().set_uppercase_all( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_all( Value );
+            obj.Formatter.options_mut().set_uppercase_all( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -822,7 +837,7 @@ pub unsafe extern "C" fn Formatter_SetUpperCaseEverything( Formatter: *mut MasmF
 // 👍 | `0` | `mov•rcx,rbp`
 // _ | `8` | `mov•••••rcx,rbp`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetFirstOperandCharIndex( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 {
+pub unsafe extern "C" fn Formatter_GetFirstOperandCharIndex( Formatter: *mut u8, FormatterType: u8 ) -> u32 {
     if Formatter.is_null() {
         return 0;
     }
@@ -832,38 +847,38 @@ pub unsafe extern "C" fn Formatter_GetFirstOperandCharIndex( Formatter: *mut Mas
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().first_operand_char_index();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().first_operand_char_index();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().first_operand_char_index();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().first_operand_char_index();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().first_operand_char_index();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().first_operand_char_index();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().first_operand_char_index();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().first_operand_char_index();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().first_operand_char_index();
+            value = obj.Formatter.options_mut().first_operand_char_index();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().first_operand_char_index();
+            value = obj.Formatter.options_mut().first_operand_char_index();
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
  
     return value;
@@ -880,7 +895,7 @@ pub unsafe extern "C" fn Formatter_GetFirstOperandCharIndex( Formatter: *mut Mas
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetFirstOperandCharIndex( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool {
+pub unsafe extern "C" fn Formatter_SetFirstOperandCharIndex( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -889,38 +904,38 @@ pub unsafe extern "C" fn Formatter_SetFirstOperandCharIndex( Formatter: *mut Mas
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_first_operand_char_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_first_operand_char_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_first_operand_char_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_first_operand_char_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_first_operand_char_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_first_operand_char_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_first_operand_char_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_first_operand_char_index( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_first_operand_char_index( Value );
+            obj.Formatter.options_mut().set_first_operand_char_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_first_operand_char_index( Value );
+            obj.Formatter.options_mut().set_first_operand_char_index( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -930,7 +945,7 @@ pub unsafe extern "C" fn Formatter_SetFirstOperandCharIndex( Formatter: *mut Mas
 //
 // - Default: `0`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetTabSize( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 {
+pub unsafe extern "C" fn Formatter_GetTabSize( Formatter: *mut u8, FormatterType: u8 ) -> u32 {
     if Formatter.is_null() {
         return 0;
     }
@@ -940,38 +955,38 @@ pub unsafe extern "C" fn Formatter_GetTabSize( Formatter: *mut MasmFormatter, Fo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().tab_size();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().tab_size();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().tab_size();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().tab_size();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().tab_size();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().tab_size();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().tab_size();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().tab_size();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().tab_size();
+            value = obj.Formatter.options_mut().tab_size();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().tab_size();
+            value = obj.Formatter.options_mut().tab_size();
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
  
     return value;
@@ -985,7 +1000,7 @@ pub unsafe extern "C" fn Formatter_GetTabSize( Formatter: *mut MasmFormatter, Fo
 //
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetTabSize( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool {
+pub unsafe extern "C" fn Formatter_SetTabSize( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -994,38 +1009,38 @@ pub unsafe extern "C" fn Formatter_SetTabSize( Formatter: *mut MasmFormatter, Fo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_tab_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_tab_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_tab_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_tab_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_tab_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_tab_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_tab_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_tab_size( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_tab_size( Value );
+            obj.Formatter.options_mut().set_tab_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_tab_size( Value );
+            obj.Formatter.options_mut().set_tab_size( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1038,7 +1053,7 @@ pub unsafe extern "C" fn Formatter_SetTabSize( Formatter: *mut MasmFormatter, Fo
 // _ | `true` | `mov rax, rcx`
 // 👍 | `false` | `mov rax,rcx`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSpaceAfterOperandSeparator( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSpaceAfterOperandSeparator( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1048,36 +1063,36 @@ pub unsafe extern "C" fn Formatter_GetSpaceAfterOperandSeparator( Formatter: *mu
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().space_after_operand_separator();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().space_after_operand_separator();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().space_after_operand_separator();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().space_after_operand_separator();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().space_after_operand_separator();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().space_after_operand_separator();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().space_after_operand_separator();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().space_after_operand_separator();
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().space_after_operand_separator();
+            value = obj.Formatter.options_mut().space_after_operand_separator();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().space_after_operand_separator();
+            value = obj.Formatter.options_mut().space_after_operand_separator();
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
  
     return value;
@@ -1093,7 +1108,7 @@ pub unsafe extern "C" fn Formatter_GetSpaceAfterOperandSeparator( Formatter: *mu
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSpaceAfterOperandSeparator( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSpaceAfterOperandSeparator( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1102,36 +1117,36 @@ pub unsafe extern "C" fn Formatter_SetSpaceAfterOperandSeparator( Formatter: *mu
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_space_after_operand_separator( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_space_after_operand_separator( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_space_after_operand_separator( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_space_after_operand_separator( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_space_after_operand_separator( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_space_after_operand_separator( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_space_after_operand_separator( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_space_after_operand_separator( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_space_after_operand_separator( Value );
+            obj.Formatter.options_mut().set_space_after_operand_separator( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_space_after_operand_separator( Value );
+            obj.Formatter.options_mut().set_space_after_operand_separator( Value );
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return true;
@@ -1144,7 +1159,7 @@ pub unsafe extern "C" fn Formatter_SetSpaceAfterOperandSeparator( Formatter: *mu
 // _ | `true` | `mov eax,[rcx+rdx ]`
 // 👍 | `false` | `mov eax,[ rcx+rdx ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSpaceAfterMemoryBracket( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSpaceAfterMemoryBracket( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1154,38 +1169,38 @@ pub unsafe extern "C" fn Formatter_GetSpaceAfterMemoryBracket( Formatter: *mut M
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().space_after_memory_bracket();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().space_after_memory_bracket();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().space_after_memory_bracket();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().space_after_memory_bracket();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().space_after_memory_bracket();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().space_after_memory_bracket();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().space_after_memory_bracket();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().space_after_memory_bracket();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().space_after_memory_bracket();
+            value = obj.Formatter.options_mut().space_after_memory_bracket();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().space_after_memory_bracket();
+            value = obj.Formatter.options_mut().space_after_memory_bracket();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -1201,7 +1216,7 @@ pub unsafe extern "C" fn Formatter_GetSpaceAfterMemoryBracket( Formatter: *mut M
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSpaceAfterMemoryBracket( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSpaceAfterMemoryBracket( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1210,38 +1225,38 @@ pub unsafe extern "C" fn Formatter_SetSpaceAfterMemoryBracket( Formatter: *mut M
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_space_after_memory_bracket( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_space_after_memory_bracket( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_space_after_memory_bracket( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_space_after_memory_bracket( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_space_after_memory_bracket( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_space_after_memory_bracket( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_space_after_memory_bracket( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_space_after_memory_bracket( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_space_after_memory_bracket( Value );
+            obj.Formatter.options_mut().set_space_after_memory_bracket( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_space_after_memory_bracket( Value );
+            obj.Formatter.options_mut().set_space_after_memory_bracket( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1254,7 +1269,7 @@ pub unsafe extern "C" fn Formatter_SetSpaceAfterMemoryBracket( Formatter: *mut M
 // _ | `true` | `mov eax,[ rcx + rdx*8 - 80h ]`
 // 👍 | `false` | `mov eax,[ rcx+rdx*8-80h ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryAddOperators( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryAddOperators( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1264,38 +1279,38 @@ pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryAddOperators( Formatter:
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().space_between_memory_add_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_add_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().space_between_memory_add_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_add_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().space_between_memory_add_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_add_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().space_between_memory_add_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_add_operators();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().space_between_memory_add_operators();
+            value = obj.Formatter.options_mut().space_between_memory_add_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().space_between_memory_add_operators();
+            value = obj.Formatter.options_mut().space_between_memory_add_operators();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -1311,7 +1326,7 @@ pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryAddOperators( Formatter:
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryAddOperators( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryAddOperators( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1320,38 +1335,38 @@ pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryAddOperators( Formatter:
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_space_between_memory_add_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_add_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_space_between_memory_add_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_add_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_space_between_memory_add_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_add_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_space_between_memory_add_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_add_operators( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_space_between_memory_add_operators( Value );
+            obj.Formatter.options_mut().set_space_between_memory_add_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_space_between_memory_add_operators( Value );
+            obj.Formatter.options_mut().set_space_between_memory_add_operators( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1364,7 +1379,7 @@ pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryAddOperators( Formatter:
 // _ | `true` | `mov eax,[ rcx+rdx * 8-80h ]`
 // 👍 | `false` | `mov eax,[ rcx+rdx*8-80h ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryMulOperators( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryMulOperators( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1374,38 +1389,38 @@ pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryMulOperators( Formatter:
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().space_between_memory_mul_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_mul_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().space_between_memory_mul_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_mul_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().space_between_memory_mul_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_mul_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().space_between_memory_mul_operators();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().space_between_memory_mul_operators();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().space_between_memory_mul_operators();
+            value = obj.Formatter.options_mut().space_between_memory_mul_operators();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().space_between_memory_mul_operators();
+            value = obj.Formatter.options_mut().space_between_memory_mul_operators();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -1421,7 +1436,7 @@ pub unsafe extern "C" fn Formatter_GetSpaceBetweenMemoryMulOperators( Formatter:
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryMulOperators( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryMulOperators( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1430,38 +1445,38 @@ pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryMulOperators( Formatter:
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_space_between_memory_mul_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_mul_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_space_between_memory_mul_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_mul_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_space_between_memory_mul_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_mul_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_space_between_memory_mul_operators( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_space_between_memory_mul_operators( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_space_between_memory_mul_operators( Value );
+            obj.Formatter.options_mut().set_space_between_memory_mul_operators( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_space_between_memory_mul_operators( Value );
+            obj.Formatter.options_mut().set_space_between_memory_mul_operators( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1474,7 +1489,7 @@ pub unsafe extern "C" fn Formatter_SetSpaceBetweenMemoryMulOperators( Formatter:
 // _ | `true` | `mov eax,[ 8*rdx ]`
 // 👍 | `false` | `mov eax,[ rdx*8 ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetScaleBeforeIndex( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetScaleBeforeIndex( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1484,38 +1499,38 @@ pub unsafe extern "C" fn Formatter_GetScaleBeforeIndex( Formatter: *mut MasmForm
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().scale_before_index();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().scale_before_index();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().scale_before_index();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().scale_before_index();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().scale_before_index();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().scale_before_index();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().scale_before_index();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().scale_before_index();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().scale_before_index();
+            value = obj.Formatter.options_mut().scale_before_index();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().scale_before_index();
+            value = obj.Formatter.options_mut().scale_before_index();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -1531,7 +1546,7 @@ pub unsafe extern "C" fn Formatter_GetScaleBeforeIndex( Formatter: *mut MasmForm
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetScaleBeforeIndex( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetScaleBeforeIndex( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1540,38 +1555,38 @@ pub unsafe extern "C" fn Formatter_SetScaleBeforeIndex( Formatter: *mut MasmForm
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_scale_before_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_scale_before_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_scale_before_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_scale_before_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_scale_before_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_scale_before_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_scale_before_index( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_scale_before_index( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_scale_before_index( Value );
+            obj.Formatter.options_mut().set_scale_before_index( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_scale_before_index( Value );
+            obj.Formatter.options_mut().set_scale_before_index( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1584,7 +1599,7 @@ pub unsafe extern "C" fn Formatter_SetScaleBeforeIndex( Formatter: *mut MasmForm
 // _ | `true` | `mov eax,[ rbx+rcx*1 ]`
 // 👍 | `false` | `mov eax,[ rbx+rcx ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetAlwaysShowScale( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetAlwaysShowScale( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1594,38 +1609,38 @@ pub unsafe extern "C" fn Formatter_GetAlwaysShowScale( Formatter: *mut MasmForma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().always_show_scale();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().always_show_scale();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().always_show_scale();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().always_show_scale();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().always_show_scale();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().always_show_scale();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().always_show_scale();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().always_show_scale();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().always_show_scale();
+            value = obj.Formatter.options_mut().always_show_scale();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().always_show_scale();
+            value = obj.Formatter.options_mut().always_show_scale();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -1641,7 +1656,7 @@ pub unsafe extern "C" fn Formatter_GetAlwaysShowScale( Formatter: *mut MasmForma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetAlwaysShowScale( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetAlwaysShowScale( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1650,38 +1665,38 @@ pub unsafe extern "C" fn Formatter_SetAlwaysShowScale( Formatter: *mut MasmForma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_always_show_scale( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_always_show_scale( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_always_show_scale( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_always_show_scale( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_always_show_scale( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_always_show_scale( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_always_show_scale( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_always_show_scale( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_always_show_scale( Value );
+            obj.Formatter.options_mut().set_always_show_scale( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_always_show_scale( Value );
+            obj.Formatter.options_mut().set_always_show_scale( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1695,7 +1710,7 @@ pub unsafe extern "C" fn Formatter_SetAlwaysShowScale( Formatter: *mut MasmForma
 // _ | `true` | `mov eax,ds:[ ecx ]`
 // 👍 | `false` | `mov eax,[ ecx ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetAlwaysShowSegmentRegister( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetAlwaysShowSegmentRegister( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1705,36 +1720,36 @@ pub unsafe extern "C" fn Formatter_GetAlwaysShowSegmentRegister( Formatter: *mut
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().always_show_segment_register();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().always_show_segment_register();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().always_show_segment_register();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().always_show_segment_register();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().always_show_segment_register();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().always_show_segment_register();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().always_show_segment_register();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().always_show_segment_register();
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().always_show_segment_register();
+            value = obj.Formatter.options_mut().always_show_segment_register();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().always_show_segment_register();
+            value = obj.Formatter.options_mut().always_show_segment_register();
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
  
     return value;
@@ -1751,7 +1766,7 @@ pub unsafe extern "C" fn Formatter_GetAlwaysShowSegmentRegister( Formatter: *mut
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetAlwaysShowSegmentRegister( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetAlwaysShowSegmentRegister( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1760,36 +1775,36 @@ pub unsafe extern "C" fn Formatter_SetAlwaysShowSegmentRegister( Formatter: *mut
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_always_show_segment_register( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_always_show_segment_register( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_always_show_segment_register( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_always_show_segment_register( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_always_show_segment_register( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_always_show_segment_register( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_always_show_segment_register( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_always_show_segment_register( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_always_show_segment_register( Value );
+            obj.Formatter.options_mut().set_always_show_segment_register( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_always_show_segment_register( Value );
+            obj.Formatter.options_mut().set_always_show_segment_register( Value );
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return true;
@@ -1802,7 +1817,7 @@ pub unsafe extern "C" fn Formatter_SetAlwaysShowSegmentRegister( Formatter: *mut
 // _ | `true` | `mov eax,[ rcx*2+0 ]`
 // 👍 | `false` | `mov eax,[ rcx*2 ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetShowZeroDisplacements( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetShowZeroDisplacements( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1812,38 +1827,38 @@ pub unsafe extern "C" fn Formatter_GetShowZeroDisplacements( Formatter: *mut Mas
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().show_zero_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().show_zero_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().show_zero_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().show_zero_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().show_zero_displacements();
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().show_zero_displacements();
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -1859,7 +1874,7 @@ pub unsafe extern "C" fn Formatter_GetShowZeroDisplacements( Formatter: *mut Mas
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetShowZeroDisplacements( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetShowZeroDisplacements( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -1868,38 +1883,38 @@ pub unsafe extern "C" fn Formatter_SetShowZeroDisplacements( Formatter: *mut Mas
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_show_zero_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_show_zero_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_show_zero_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_show_zero_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_show_zero_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_show_zero_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_show_zero_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_show_zero_displacements( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_show_zero_displacements( Value );
+            obj.Formatter.options_mut().set_show_zero_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_show_zero_displacements( Value );
+            obj.Formatter.options_mut().set_show_zero_displacements( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -1909,7 +1924,7 @@ pub unsafe extern "C" fn Formatter_SetShowZeroDisplacements( Formatter: *mut Mas
 //
 // - Default: `""` ( masm/nasm/intel ), `"0x"` ( gas )
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetHexPrefix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {    
+pub unsafe extern "C" fn Formatter_GetHexPrefix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {    
     if Formatter.is_null() {
         return 0;
     }
@@ -1921,112 +1936,94 @@ pub unsafe extern "C" fn Formatter_GetHexPrefix( Formatter: *mut MasmFormatter, 
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().hex_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().hex_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().hex_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().hex_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
             
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().hex_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().hex_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().hex_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().hex_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().hex_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().hex_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().hex_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().hex_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Hex number prefix or an empty string, eg. `"0x"`
@@ -2036,7 +2033,7 @@ pub unsafe extern "C" fn Formatter_GetHexPrefix( Formatter: *mut MasmFormatter, 
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetHexPrefix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetHexPrefix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -2050,38 +2047,38 @@ pub unsafe extern "C" fn Formatter_SetHexPrefix( Formatter: *mut MasmFormatter, 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_hex_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_hex_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_hex_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_hex_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_hex_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_hex_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_hex_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_hex_prefix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_hex_prefix_string( value );
+            obj.Formatter.options_mut().set_hex_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_hex_prefix_string( value );
+            obj.Formatter.options_mut().set_hex_prefix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -2091,7 +2088,7 @@ pub unsafe extern "C" fn Formatter_SetHexPrefix( Formatter: *mut MasmFormatter, 
 //
 // - Default: `"h"` ( masm/nasm/intel ), `""` ( gas )
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetHexSuffix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetHexSuffix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -2103,112 +2100,94 @@ pub unsafe extern "C" fn Formatter_GetHexSuffix( Formatter: *mut MasmFormatter, 
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().hex_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().hex_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().hex_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().hex_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().hex_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().hex_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().hex_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().hex_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().hex_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().hex_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().hex_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().hex_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Hex number suffix or an empty string, eg. `"h"`
@@ -2218,7 +2197,7 @@ pub unsafe extern "C" fn Formatter_GetHexSuffix( Formatter: *mut MasmFormatter, 
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetHexSuffix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetHexSuffix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -2232,38 +2211,38 @@ pub unsafe extern "C" fn Formatter_SetHexSuffix( Formatter: *mut MasmFormatter, 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_hex_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_hex_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_hex_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_hex_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_hex_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_hex_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_hex_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_hex_suffix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_hex_suffix_string( value );
+            obj.Formatter.options_mut().set_hex_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_hex_suffix_string( value );
+            obj.Formatter.options_mut().set_hex_suffix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -2278,7 +2257,7 @@ pub unsafe extern "C" fn Formatter_SetHexSuffix( Formatter: *mut MasmFormatter, 
 // _ | `0` | `0x12345678`
 // 👍 | `4` | `0x1234_5678`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetHexDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 {
+pub unsafe extern "C" fn Formatter_GetHexDigitGroupSize( Formatter: *mut u8, FormatterType: u8 ) -> u32 {
     if Formatter.is_null() {
         return 0;
     }
@@ -2288,38 +2267,38 @@ pub unsafe extern "C" fn Formatter_GetHexDigitGroupSize( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().hex_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().hex_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().hex_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().hex_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().hex_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().hex_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().hex_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().hex_digit_group_size();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().hex_digit_group_size();
+            value = obj.Formatter.options_mut().hex_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().hex_digit_group_size();
+            value = obj.Formatter.options_mut().hex_digit_group_size();
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
  
     return value;
@@ -2337,7 +2316,7 @@ pub unsafe extern "C" fn Formatter_GetHexDigitGroupSize( Formatter: *mut MasmFor
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetHexDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool {
+pub unsafe extern "C" fn Formatter_SetHexDigitGroupSize( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -2346,38 +2325,38 @@ pub unsafe extern "C" fn Formatter_SetHexDigitGroupSize( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_hex_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_hex_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_hex_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_hex_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_hex_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_hex_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_hex_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_hex_digit_group_size( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_hex_digit_group_size( Value );
+            obj.Formatter.options_mut().set_hex_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_hex_digit_group_size( Value );
+            obj.Formatter.options_mut().set_hex_digit_group_size( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -2387,7 +2366,7 @@ pub unsafe extern "C" fn Formatter_SetHexDigitGroupSize( Formatter: *mut MasmFor
 //
 // - Default: `""`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetDecimalPrefix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetDecimalPrefix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -2399,112 +2378,94 @@ pub unsafe extern "C" fn Formatter_GetDecimalPrefix( Formatter: *mut MasmFormatt
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().decimal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().decimal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().decimal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().decimal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().decimal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().decimal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().decimal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().decimal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Decimal number prefix or an empty string
@@ -2514,7 +2475,7 @@ pub unsafe extern "C" fn Formatter_GetDecimalPrefix( Formatter: *mut MasmFormatt
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetDecimalPrefix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetDecimalPrefix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -2528,38 +2489,38 @@ pub unsafe extern "C" fn Formatter_SetDecimalPrefix( Formatter: *mut MasmFormatt
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_decimal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_decimal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_decimal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_decimal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_decimal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_decimal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_decimal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_decimal_prefix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_decimal_prefix_string( value );
+            obj.Formatter.options_mut().set_decimal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_decimal_prefix_string( value );
+            obj.Formatter.options_mut().set_decimal_prefix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -2569,7 +2530,7 @@ pub unsafe extern "C" fn Formatter_SetDecimalPrefix( Formatter: *mut MasmFormatt
 //
 // - Default: `""`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetDecimalSuffix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetDecimalSuffix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -2581,112 +2542,94 @@ pub unsafe extern "C" fn Formatter_GetDecimalSuffix( Formatter: *mut MasmFormatt
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().decimal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().decimal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().decimal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().decimal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().decimal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().decimal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().decimal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().decimal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().decimal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Decimal number suffix or an empty string
@@ -2696,7 +2639,7 @@ pub unsafe extern "C" fn Formatter_GetDecimalSuffix( Formatter: *mut MasmFormatt
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetDecimalSuffix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetDecimalSuffix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -2710,38 +2653,38 @@ pub unsafe extern "C" fn Formatter_SetDecimalSuffix( Formatter: *mut MasmFormatt
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_decimal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_decimal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_decimal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_decimal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_decimal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_decimal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_decimal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_decimal_suffix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_decimal_suffix_string( value );
+            obj.Formatter.options_mut().set_decimal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_decimal_suffix_string( value );
+            obj.Formatter.options_mut().set_decimal_suffix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -2756,7 +2699,7 @@ pub unsafe extern "C" fn Formatter_SetDecimalSuffix( Formatter: *mut MasmFormatt
 // _ | `0` | `12345678`
 // 👍 | `3` | `12_345_678`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetDecimalDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 {
+pub unsafe extern "C" fn Formatter_GetDecimalDigitGroupSize( Formatter: *mut u8, FormatterType: u8 ) -> u32 {
     if Formatter.is_null() {
         return 0;
     }
@@ -2766,38 +2709,38 @@ pub unsafe extern "C" fn Formatter_GetDecimalDigitGroupSize( Formatter: *mut Mas
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().decimal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().decimal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().decimal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().decimal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().decimal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().decimal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().decimal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().decimal_digit_group_size();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().decimal_digit_group_size();
+            value = obj.Formatter.options_mut().decimal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().decimal_digit_group_size();
+            value = obj.Formatter.options_mut().decimal_digit_group_size();
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
     return value;
@@ -2815,7 +2758,7 @@ pub unsafe extern "C" fn Formatter_GetDecimalDigitGroupSize( Formatter: *mut Mas
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetDecimalDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool {
+pub unsafe extern "C" fn Formatter_SetDecimalDigitGroupSize( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -2824,38 +2767,38 @@ pub unsafe extern "C" fn Formatter_SetDecimalDigitGroupSize( Formatter: *mut Mas
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_decimal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_decimal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_decimal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_decimal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_decimal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_decimal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_decimal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_decimal_digit_group_size( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_decimal_digit_group_size( Value );
+            obj.Formatter.options_mut().set_decimal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_decimal_digit_group_size( Value );
+            obj.Formatter.options_mut().set_decimal_digit_group_size( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -2865,7 +2808,7 @@ pub unsafe extern "C" fn Formatter_SetDecimalDigitGroupSize( Formatter: *mut Mas
 //
 // - Default: `""` ( masm/nasm/intel ), `"0"` ( gas )
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetOctalPrefix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetOctalPrefix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -2877,112 +2820,94 @@ pub unsafe extern "C" fn Formatter_GetOctalPrefix( Formatter: *mut MasmFormatter
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().octal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().octal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().octal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().octal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().octal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().octal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().octal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().octal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().octal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().octal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().octal_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().octal_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Octal number prefix or an empty string
@@ -2992,7 +2917,7 @@ pub unsafe extern "C" fn Formatter_GetOctalPrefix( Formatter: *mut MasmFormatter
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetOctalPrefix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetOctalPrefix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3006,38 +2931,38 @@ pub unsafe extern "C" fn Formatter_SetOctalPrefix( Formatter: *mut MasmFormatter
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_octal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_octal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_octal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_octal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_octal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_octal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_octal_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_octal_prefix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_octal_prefix_string( value );
+            obj.Formatter.options_mut().set_octal_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_octal_prefix_string( value );
+            obj.Formatter.options_mut().set_octal_prefix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -3047,7 +2972,7 @@ pub unsafe extern "C" fn Formatter_SetOctalPrefix( Formatter: *mut MasmFormatter
 //
 // - Default: `"o"` ( masm/nasm/intel ), `""` ( gas )
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetOctalSuffix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetOctalSuffix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -3059,112 +2984,94 @@ pub unsafe extern "C" fn Formatter_GetOctalSuffix( Formatter: *mut MasmFormatter
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().octal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().octal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().octal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().octal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().octal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().octal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().octal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().octal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().octal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().octal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().octal_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().octal_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Octal number suffix or an empty string
@@ -3174,7 +3081,7 @@ pub unsafe extern "C" fn Formatter_GetOctalSuffix( Formatter: *mut MasmFormatter
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetOctalSuffix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetOctalSuffix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3188,38 +3095,38 @@ pub unsafe extern "C" fn Formatter_SetOctalSuffix( Formatter: *mut MasmFormatter
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_octal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_octal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_octal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_octal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_octal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_octal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_octal_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_octal_suffix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_octal_suffix_string( value );
+            obj.Formatter.options_mut().set_octal_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_octal_suffix_string( value );
+            obj.Formatter.options_mut().set_octal_suffix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -3234,7 +3141,7 @@ pub unsafe extern "C" fn Formatter_SetOctalSuffix( Formatter: *mut MasmFormatter
 // _ | `0` | `12345670`
 // 👍 | `4` | `1234_5670`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetOctalDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 {
+pub unsafe extern "C" fn Formatter_GetOctalDigitGroupSize( Formatter: *mut u8, FormatterType: u8 ) -> u32 {
     if Formatter.is_null() {
         return 0;
     }
@@ -3244,38 +3151,38 @@ pub unsafe extern "C" fn Formatter_GetOctalDigitGroupSize( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().octal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().octal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().octal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().octal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().octal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().octal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().octal_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().octal_digit_group_size();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().octal_digit_group_size();
+            value = obj.Formatter.options_mut().octal_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().octal_digit_group_size();
+            value = obj.Formatter.options_mut().octal_digit_group_size();
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
  
     return value;
@@ -3293,7 +3200,7 @@ pub unsafe extern "C" fn Formatter_GetOctalDigitGroupSize( Formatter: *mut MasmF
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetOctalDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool {
+pub unsafe extern "C" fn Formatter_SetOctalDigitGroupSize( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3302,38 +3209,38 @@ pub unsafe extern "C" fn Formatter_SetOctalDigitGroupSize( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_octal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_octal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_octal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_octal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_octal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_octal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_octal_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_octal_digit_group_size( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_octal_digit_group_size( Value );
+            obj.Formatter.options_mut().set_octal_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_octal_digit_group_size( Value );
+            obj.Formatter.options_mut().set_octal_digit_group_size( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -3343,7 +3250,7 @@ pub unsafe extern "C" fn Formatter_SetOctalDigitGroupSize( Formatter: *mut MasmF
 //
 // - Default: `""` ( masm/nasm/intel ), `"0b"` ( gas )
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetBinaryPrefix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetBinaryPrefix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -3355,112 +3262,94 @@ pub unsafe extern "C" fn Formatter_GetBinaryPrefix( Formatter: *mut MasmFormatte
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().binary_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().binary_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().binary_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().binary_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().binary_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().binary_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().binary_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().binary_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().binary_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().binary_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().binary_prefix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().binary_prefix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Binary number prefix or an empty string
@@ -3470,7 +3359,7 @@ pub unsafe extern "C" fn Formatter_GetBinaryPrefix( Formatter: *mut MasmFormatte
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetBinaryPrefix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetBinaryPrefix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3484,38 +3373,38 @@ pub unsafe extern "C" fn Formatter_SetBinaryPrefix( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_binary_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_binary_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_binary_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_binary_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_binary_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_binary_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_binary_prefix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_binary_prefix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_binary_prefix_string( value );
+            obj.Formatter.options_mut().set_binary_prefix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_binary_prefix_string( value );
+            obj.Formatter.options_mut().set_binary_prefix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -3525,7 +3414,7 @@ pub unsafe extern "C" fn Formatter_SetBinaryPrefix( Formatter: *mut MasmFormatte
 //
 // - Default: `"b"` ( masm/nasm/intel ), `""` ( gas )
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetBinarySuffix( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetBinarySuffix( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -3537,112 +3426,94 @@ pub unsafe extern "C" fn Formatter_GetBinarySuffix( Formatter: *mut MasmFormatte
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().binary_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().binary_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().binary_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().binary_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().binary_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().binary_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().binary_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().binary_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().binary_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().binary_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().binary_suffix();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().binary_suffix();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Binary number suffix or an empty string
@@ -3652,7 +3523,7 @@ pub unsafe extern "C" fn Formatter_GetBinarySuffix( Formatter: *mut MasmFormatte
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetBinarySuffix( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetBinarySuffix( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3666,38 +3537,38 @@ pub unsafe extern "C" fn Formatter_SetBinarySuffix( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_binary_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_binary_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_binary_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_binary_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_binary_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_binary_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_binary_suffix_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_binary_suffix_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_binary_suffix_string( value );
+            obj.Formatter.options_mut().set_binary_suffix_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_binary_suffix_string( value );
+            obj.Formatter.options_mut().set_binary_suffix_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -3712,7 +3583,7 @@ pub unsafe extern "C" fn Formatter_SetBinarySuffix( Formatter: *mut MasmFormatte
 // _ | `0` | `11010111`
 // 👍 | `4` | `1101_0111`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetBinaryDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 {
+pub unsafe extern "C" fn Formatter_GetBinaryDigitGroupSize( Formatter: *mut u8, FormatterType: u8 ) -> u32 {
     if Formatter.is_null() {
         return 0;
     }
@@ -3722,38 +3593,38 @@ pub unsafe extern "C" fn Formatter_GetBinaryDigitGroupSize( Formatter: *mut Masm
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().binary_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().binary_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().binary_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().binary_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().binary_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().binary_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().binary_digit_group_size();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().binary_digit_group_size();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().binary_digit_group_size();
+            value = obj.Formatter.options_mut().binary_digit_group_size();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().binary_digit_group_size();
+            value = obj.Formatter.options_mut().binary_digit_group_size();
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
  
     return value;
@@ -3771,7 +3642,7 @@ pub unsafe extern "C" fn Formatter_GetBinaryDigitGroupSize( Formatter: *mut Masm
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetBinaryDigitGroupSize( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool {
+pub unsafe extern "C" fn Formatter_SetBinaryDigitGroupSize( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3780,38 +3651,38 @@ pub unsafe extern "C" fn Formatter_SetBinaryDigitGroupSize( Formatter: *mut Masm
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_binary_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_binary_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_binary_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_binary_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_binary_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_binary_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_binary_digit_group_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_binary_digit_group_size( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_binary_digit_group_size( Value );
+            obj.Formatter.options_mut().set_binary_digit_group_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_binary_digit_group_size( Value );
+            obj.Formatter.options_mut().set_binary_digit_group_size( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -3826,7 +3697,7 @@ pub unsafe extern "C" fn Formatter_SetBinaryDigitGroupSize( Formatter: *mut Masm
 // 👍 | `""` | `0x12345678`
 // _ | `"_"` | `0x1234_5678`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetDigitSeparator( Formatter: *mut MasmFormatter, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
+pub unsafe extern "C" fn Formatter_GetDigitSeparator( Formatter: *mut u8, FormatterType: u8, Value : *mut u8, Size : usize ) -> usize {
     if Formatter.is_null() {
         return 0;
     }
@@ -3838,112 +3709,94 @@ pub unsafe extern "C" fn Formatter_GetDigitSeparator( Formatter: *mut MasmFormat
         return 0
     }
 
-    let mut l: usize;
+    let n: usize;
     let formatterType : TFormatterType = transmute( FormatterType as u8 );
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            let tmp = obj.options_mut().digit_separator();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            let tmp = obj.Formatter.options_mut().digit_separator();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            let tmp = obj.options_mut().digit_separator();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            let tmp = obj.Formatter.options_mut().digit_separator();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            let tmp = obj.options_mut().digit_separator();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            let tmp = obj.Formatter.options_mut().digit_separator();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            let tmp = obj.options_mut().digit_separator();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            let tmp = obj.Formatter.options_mut().digit_separator();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            let tmp = obj.options_mut().digit_separator();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().digit_separator();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            let tmp = obj.options_mut().digit_separator();
-            l = tmp.len();
-            if l > Size {
-                l = Size;
-            }
-            
-            if l > 0 {
-                for i in 0..l {
-                    *( Value.add( i ) ) = tmp.as_bytes()[ i ];
-                }
-            }
-            *( Value.add( l ) ) = 0;
+            let tmp = obj.Formatter.options_mut().digit_separator();
+
+            let aValue = Value as *mut [u8;1024];
+            let aTmp = tmp.as_bytes();
+                
+            n = std::cmp::min( aTmp.len(), Size/*(*aValue).len()*/ );
+            (*aValue)[0..n].copy_from_slice(&aTmp[0..n]);
+            (*aValue)[n] = 0;
+
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
-    return l;
+    return n;
 }
 
 // Digit separator or an empty string. See also eg. [ `hex_digit_group_size()` ]
@@ -3958,7 +3811,7 @@ pub unsafe extern "C" fn Formatter_GetDigitSeparator( Formatter: *mut MasmFormat
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetDigitSeparator( Formatter: *mut MasmFormatter, FormatterType : u8, Value : *const c_char ) -> bool {
+pub unsafe extern "C" fn Formatter_SetDigitSeparator( Formatter: *mut u8, FormatterType : u8, Value : *const c_char ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -3972,38 +3825,38 @@ pub unsafe extern "C" fn Formatter_SetDigitSeparator( Formatter: *mut MasmFormat
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_digit_separator_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_digit_separator_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_digit_separator_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_digit_separator_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_digit_separator_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_digit_separator_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_digit_separator_string( value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_digit_separator_string( value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_digit_separator_string( value );
+            obj.Formatter.options_mut().set_digit_separator_string( value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_digit_separator_string( value );
+            obj.Formatter.options_mut().set_digit_separator_string( value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4018,7 +3871,7 @@ pub unsafe extern "C" fn Formatter_SetDigitSeparator( Formatter: *mut MasmFormat
 // _ | `true` | `0x0000000A`/`0000000Ah`
 // 👍 | `false` | `0xA`/`0Ah`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetLeadingZeros( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetLeadingZeros( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4028,38 +3881,38 @@ pub unsafe extern "C" fn Formatter_GetLeadingZeros( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().leading_zeros();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().leading_zeros();
+            value = obj.Formatter.options_mut().leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().leading_zeros();
+            value = obj.Formatter.options_mut().leading_zeros();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -4077,7 +3930,7 @@ pub unsafe extern "C" fn Formatter_GetLeadingZeros( Formatter: *mut MasmFormatte
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetLeadingZeros( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetLeadingZeros( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4086,38 +3939,38 @@ pub unsafe extern "C" fn Formatter_SetLeadingZeros( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_leading_zeros( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_leading_zeros( Value );
+            obj.Formatter.options_mut().set_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_leading_zeros( Value );
+            obj.Formatter.options_mut().set_leading_zeros( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4130,7 +3983,7 @@ pub unsafe extern "C" fn Formatter_SetLeadingZeros( Formatter: *mut MasmFormatte
 // 👍 | `true` | `0xFF`
 // _ | `false` | `0xff`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUppercaseHex( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUppercaseHex( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4140,36 +3993,36 @@ pub unsafe extern "C" fn Formatter_GetUppercaseHex( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().uppercase_hex();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_hex();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().uppercase_hex();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().uppercase_hex();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().uppercase_hex();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().uppercase_hex();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().uppercase_hex();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().uppercase_hex();
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().uppercase_hex();
+            value = obj.Formatter.options_mut().uppercase_hex();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().uppercase_hex();
+            value = obj.Formatter.options_mut().uppercase_hex();
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
  
     return value;
@@ -4185,7 +4038,7 @@ pub unsafe extern "C" fn Formatter_GetUppercaseHex( Formatter: *mut MasmFormatte
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUppercaseHex( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUppercaseHex( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4194,36 +4047,36 @@ pub unsafe extern "C" fn Formatter_SetUppercaseHex( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_uppercase_hex( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_hex( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_uppercase_hex( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_uppercase_hex( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_uppercase_hex( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_uppercase_hex( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_uppercase_hex( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_uppercase_hex( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_uppercase_hex( Value );
+            obj.Formatter.options_mut().set_uppercase_hex( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_uppercase_hex( Value );
+            obj.Formatter.options_mut().set_uppercase_hex( Value );
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return true;
@@ -4236,7 +4089,7 @@ pub unsafe extern "C" fn Formatter_SetUppercaseHex( Formatter: *mut MasmFormatte
 // 👍 | `true` | `9`
 // _ | `false` | `0x9`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSmallHexNumbersInDecimal( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSmallHexNumbersInDecimal( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4246,38 +4099,38 @@ pub unsafe extern "C" fn Formatter_GetSmallHexNumbersInDecimal( Formatter: *mut 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().small_hex_numbers_in_decimal();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().small_hex_numbers_in_decimal();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().small_hex_numbers_in_decimal();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().small_hex_numbers_in_decimal();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().small_hex_numbers_in_decimal();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().small_hex_numbers_in_decimal();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().small_hex_numbers_in_decimal();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().small_hex_numbers_in_decimal();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().small_hex_numbers_in_decimal();
+            value = obj.Formatter.options_mut().small_hex_numbers_in_decimal();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().small_hex_numbers_in_decimal();
+            value = obj.Formatter.options_mut().small_hex_numbers_in_decimal();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -4293,7 +4146,7 @@ pub unsafe extern "C" fn Formatter_GetSmallHexNumbersInDecimal( Formatter: *mut 
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSmallHexNumbersInDecimal( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSmallHexNumbersInDecimal( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4302,38 +4155,38 @@ pub unsafe extern "C" fn Formatter_SetSmallHexNumbersInDecimal( Formatter: *mut 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_small_hex_numbers_in_decimal( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_small_hex_numbers_in_decimal( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_small_hex_numbers_in_decimal( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_small_hex_numbers_in_decimal( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_small_hex_numbers_in_decimal( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_small_hex_numbers_in_decimal( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_small_hex_numbers_in_decimal( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_small_hex_numbers_in_decimal( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_small_hex_numbers_in_decimal( Value );
+            obj.Formatter.options_mut().set_small_hex_numbers_in_decimal( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_small_hex_numbers_in_decimal( Value );
+            obj.Formatter.options_mut().set_small_hex_numbers_in_decimal( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4346,7 +4199,7 @@ pub unsafe extern "C" fn Formatter_SetSmallHexNumbersInDecimal( Formatter: *mut 
 // 👍 | `true` | `0FFh`
 // _ | `false` | `FFh`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetAddLeadingZeroToHexNumbers( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetAddLeadingZeroToHexNumbers( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4356,38 +4209,38 @@ pub unsafe extern "C" fn Formatter_GetAddLeadingZeroToHexNumbers( Formatter: *mu
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().add_leading_zero_to_hex_numbers();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().add_leading_zero_to_hex_numbers();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().add_leading_zero_to_hex_numbers();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().add_leading_zero_to_hex_numbers();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().add_leading_zero_to_hex_numbers();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().add_leading_zero_to_hex_numbers();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().add_leading_zero_to_hex_numbers();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().add_leading_zero_to_hex_numbers();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().add_leading_zero_to_hex_numbers();
+            value = obj.Formatter.options_mut().add_leading_zero_to_hex_numbers();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().add_leading_zero_to_hex_numbers();
+            value = obj.Formatter.options_mut().add_leading_zero_to_hex_numbers();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -4403,7 +4256,7 @@ pub unsafe extern "C" fn Formatter_GetAddLeadingZeroToHexNumbers( Formatter: *mu
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetAddLeadingZeroToHexNumbers( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetAddLeadingZeroToHexNumbers( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4412,38 +4265,38 @@ pub unsafe extern "C" fn Formatter_SetAddLeadingZeroToHexNumbers( Formatter: *mu
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_add_leading_zero_to_hex_numbers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_add_leading_zero_to_hex_numbers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_add_leading_zero_to_hex_numbers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_add_leading_zero_to_hex_numbers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_add_leading_zero_to_hex_numbers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_add_leading_zero_to_hex_numbers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_add_leading_zero_to_hex_numbers( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_add_leading_zero_to_hex_numbers( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_add_leading_zero_to_hex_numbers( Value );
+            obj.Formatter.options_mut().set_add_leading_zero_to_hex_numbers( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_add_leading_zero_to_hex_numbers( Value );
+            obj.Formatter.options_mut().set_add_leading_zero_to_hex_numbers( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4455,7 +4308,7 @@ pub unsafe extern "C" fn Formatter_SetAddLeadingZeroToHexNumbers( Formatter: *mu
 //
 // [ `Hexadecimal` ]: enum.NumberBase.html#variant.Hexadecimal
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetNumberBase( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: NumberBase
+pub unsafe extern "C" fn Formatter_GetNumberBase( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: NumberBase
     if Formatter.is_null() {
         return 0;// NumberBase::Hexadecimal;
     }
@@ -4465,38 +4318,38 @@ pub unsafe extern "C" fn Formatter_GetNumberBase( Formatter: *mut MasmFormatter,
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().number_base() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().number_base() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().number_base() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().number_base() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().number_base() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().number_base() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().number_base() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().number_base() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().number_base() as u32 );
+            value = transmute( obj.Formatter.options_mut().number_base() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().number_base() as u32 );
+            value = transmute( obj.Formatter.options_mut().number_base() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }    
    
     return value;
@@ -4511,7 +4364,7 @@ pub unsafe extern "C" fn Formatter_GetNumberBase( Formatter: *mut MasmFormatter,
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetNumberBase( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 /*NumberBase*/ ) -> bool { // FFI-Unsafe:
+pub unsafe extern "C" fn Formatter_SetNumberBase( Formatter: *mut u8, FormatterType : u8, Value : u32 /*NumberBase*/ ) -> bool { // FFI-Unsafe:
     if Formatter.is_null() {
         return false;
     }
@@ -4520,38 +4373,38 @@ pub unsafe extern "C" fn Formatter_SetNumberBase( Formatter: *mut MasmFormatter,
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_number_base( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_number_base( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_number_base( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_number_base( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_number_base( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_number_base( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_number_base( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_number_base( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_number_base( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_number_base( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_number_base( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_number_base( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4564,7 +4417,7 @@ pub unsafe extern "C" fn Formatter_SetNumberBase( Formatter: *mut MasmFormatter,
 // 👍 | `true` | `je 00000123h`
 // _ | `false` | `je 123h`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetBranchLeadingZeros( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetBranchLeadingZeros( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4574,38 +4427,38 @@ pub unsafe extern "C" fn Formatter_GetBranchLeadingZeros( Formatter: *mut MasmFo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().show_zero_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().show_zero_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().branch_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().branch_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().branch_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().branch_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().branch_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().branch_leading_zeros();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().branch_leading_zeros();
+            value = obj.Formatter.options_mut().branch_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().branch_leading_zeros();
+            value = obj.Formatter.options_mut().branch_leading_zeros();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return value;
@@ -4621,7 +4474,7 @@ pub unsafe extern "C" fn Formatter_GetBranchLeadingZeros( Formatter: *mut MasmFo
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetBranchLeadingZeros( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetBranchLeadingZeros( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4630,38 +4483,38 @@ pub unsafe extern "C" fn Formatter_SetBranchLeadingZeros( Formatter: *mut MasmFo
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_branch_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_branch_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_branch_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_branch_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_branch_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_branch_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_branch_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_branch_leading_zeros( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_branch_leading_zeros( Value );
+            obj.Formatter.options_mut().set_branch_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_branch_leading_zeros( Value );
+            obj.Formatter.options_mut().set_branch_leading_zeros( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4674,7 +4527,7 @@ pub unsafe extern "C" fn Formatter_SetBranchLeadingZeros( Formatter: *mut MasmFo
 // _ | `true` | `mov eax,-1`
 // 👍 | `false` | `mov eax,FFFFFFFF`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSignedImmediateOperands( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSignedImmediateOperands( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4684,38 +4537,38 @@ pub unsafe extern "C" fn Formatter_GetSignedImmediateOperands( Formatter: *mut M
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().signed_immediate_operands();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().signed_immediate_operands();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().signed_immediate_operands();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().signed_immediate_operands();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().signed_immediate_operands();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().signed_immediate_operands();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().signed_immediate_operands();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().signed_immediate_operands();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().signed_immediate_operands();
+            value = obj.Formatter.options_mut().signed_immediate_operands();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().signed_immediate_operands();
+            value = obj.Formatter.options_mut().signed_immediate_operands();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -4731,7 +4584,7 @@ pub unsafe extern "C" fn Formatter_GetSignedImmediateOperands( Formatter: *mut M
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSignedImmediateOperands( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSignedImmediateOperands( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4740,38 +4593,38 @@ pub unsafe extern "C" fn Formatter_SetSignedImmediateOperands( Formatter: *mut M
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_signed_immediate_operands( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_signed_immediate_operands( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_signed_immediate_operands( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_signed_immediate_operands( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_signed_immediate_operands( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_signed_immediate_operands( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_signed_immediate_operands( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_signed_immediate_operands( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_signed_immediate_operands( Value );
+            obj.Formatter.options_mut().set_signed_immediate_operands( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_signed_immediate_operands( Value );
+            obj.Formatter.options_mut().set_signed_immediate_operands( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4784,7 +4637,7 @@ pub unsafe extern "C" fn Formatter_SetSignedImmediateOperands( Formatter: *mut M
 // 👍 | `true` | `mov al,[ eax-2000h ]`
 // _ | `false` | `mov al,[ eax+0FFFFE000h ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetSignedMemoryDisplacements( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetSignedMemoryDisplacements( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4794,38 +4647,38 @@ pub unsafe extern "C" fn Formatter_GetSignedMemoryDisplacements( Formatter: *mut
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().signed_memory_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().signed_memory_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().signed_memory_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().signed_memory_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().signed_memory_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().signed_memory_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().signed_memory_displacements();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().signed_memory_displacements();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().signed_memory_displacements();
+            value = obj.Formatter.options_mut().signed_memory_displacements();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().signed_memory_displacements();
+            value = obj.Formatter.options_mut().signed_memory_displacements();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -4842,7 +4695,7 @@ pub unsafe extern "C" fn Formatter_GetSignedMemoryDisplacements( Formatter: *mut
 //
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetSignedMemoryDisplacements( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetSignedMemoryDisplacements( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4851,38 +4704,38 @@ pub unsafe extern "C" fn Formatter_SetSignedMemoryDisplacements( Formatter: *mut
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_signed_memory_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_signed_memory_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_signed_memory_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_signed_memory_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_signed_memory_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_signed_memory_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_signed_memory_displacements( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_signed_memory_displacements( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_signed_memory_displacements( Value );
+            obj.Formatter.options_mut().set_signed_memory_displacements( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_signed_memory_displacements( Value );
+            obj.Formatter.options_mut().set_signed_memory_displacements( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -4895,7 +4748,7 @@ pub unsafe extern "C" fn Formatter_SetSignedMemoryDisplacements( Formatter: *mut
 // _ | `true` | `mov al,[ eax+00000012h ]`
 // 👍 | `false` | `mov al,[ eax+12h ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetDisplacementLeadingZeros( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetDisplacementLeadingZeros( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4905,38 +4758,38 @@ pub unsafe extern "C" fn Formatter_GetDisplacementLeadingZeros( Formatter: *mut 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().displacement_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().displacement_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().displacement_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().displacement_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().displacement_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().displacement_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().displacement_leading_zeros();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().displacement_leading_zeros();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().displacement_leading_zeros();
+            value = obj.Formatter.options_mut().displacement_leading_zeros();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().displacement_leading_zeros();
+            value = obj.Formatter.options_mut().displacement_leading_zeros();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -4952,7 +4805,7 @@ pub unsafe extern "C" fn Formatter_GetDisplacementLeadingZeros( Formatter: *mut 
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetDisplacementLeadingZeros( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetDisplacementLeadingZeros( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -4961,38 +4814,38 @@ pub unsafe extern "C" fn Formatter_SetDisplacementLeadingZeros( Formatter: *mut 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_displacement_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_displacement_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_displacement_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_displacement_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_displacement_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_displacement_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_displacement_leading_zeros( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_displacement_leading_zeros( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_displacement_leading_zeros( Value );
+            obj.Formatter.options_mut().set_displacement_leading_zeros( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_displacement_leading_zeros( Value );
+            obj.Formatter.options_mut().set_displacement_leading_zeros( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5005,7 +4858,7 @@ pub unsafe extern "C" fn Formatter_SetDisplacementLeadingZeros( Formatter: *mut 
 //
 // [ `Default` ]: enum.MemorySizeOptions.html#variant.Default
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetMemorySizeOptions( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: MemorySizeOptions
+pub unsafe extern "C" fn Formatter_GetMemorySizeOptions( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: MemorySizeOptions
     if Formatter.is_null() {
         return 0;// MemorySizeOptions::Default;
     }
@@ -5015,38 +4868,38 @@ pub unsafe extern "C" fn Formatter_GetMemorySizeOptions( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().memory_size_options() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().memory_size_options() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().memory_size_options() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().memory_size_options() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().memory_size_options() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().memory_size_options() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().memory_size_options() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().memory_size_options() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().memory_size_options() as u32 );
+            value = transmute( obj.Formatter.options_mut().memory_size_options() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().memory_size_options() as u32 );
+            value = transmute( obj.Formatter.options_mut().memory_size_options() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
 
     return value;
@@ -5062,7 +4915,7 @@ pub unsafe extern "C" fn Formatter_GetMemorySizeOptions( Formatter: *mut MasmFor
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetMemorySizeOptions( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 /*MemorySizeOptions*/ ) -> bool { // FFI-Unsafe: MemorySizeOptions
+pub unsafe extern "C" fn Formatter_SetMemorySizeOptions( Formatter: *mut u8, FormatterType : u8, Value : u32 /*MemorySizeOptions*/ ) -> bool { // FFI-Unsafe: MemorySizeOptions
     if Formatter.is_null() {
         return false;
     }
@@ -5071,38 +4924,38 @@ pub unsafe extern "C" fn Formatter_SetMemorySizeOptions( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_memory_size_options( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_memory_size_options( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_memory_size_options( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_memory_size_options( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_memory_size_options( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_memory_size_options( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_memory_size_options( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_memory_size_options( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_memory_size_options( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_memory_size_options( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_memory_size_options( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_memory_size_options( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5115,7 +4968,7 @@ pub unsafe extern "C" fn Formatter_SetMemorySizeOptions( Formatter: *mut MasmFor
 // _ | `true` | `mov eax,[ rip+12345678h ]`
 // 👍 | `false` | `mov eax,[ 1029384756AFBECDh ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetRipRelativeAddresses( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetRipRelativeAddresses( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5125,36 +4978,36 @@ pub unsafe extern "C" fn Formatter_GetRipRelativeAddresses( Formatter: *mut Masm
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().rip_relative_addresses();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().rip_relative_addresses();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().rip_relative_addresses();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().rip_relative_addresses();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().rip_relative_addresses();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().rip_relative_addresses();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().rip_relative_addresses();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().rip_relative_addresses();
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().rip_relative_addresses();
+            value = obj.Formatter.options_mut().rip_relative_addresses();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().rip_relative_addresses();
+            value = obj.Formatter.options_mut().rip_relative_addresses();
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
  
     return value;
@@ -5170,7 +5023,7 @@ pub unsafe extern "C" fn Formatter_GetRipRelativeAddresses( Formatter: *mut Masm
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetRipRelativeAddresses( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetRipRelativeAddresses( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5179,36 +5032,36 @@ pub unsafe extern "C" fn Formatter_SetRipRelativeAddresses( Formatter: *mut Masm
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_rip_relative_addresses( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_rip_relative_addresses( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_rip_relative_addresses( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_rip_relative_addresses( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_rip_relative_addresses( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_rip_relative_addresses( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_rip_relative_addresses( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_rip_relative_addresses( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_rip_relative_addresses( Value );
+            obj.Formatter.options_mut().set_rip_relative_addresses( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_rip_relative_addresses( Value );
+            obj.Formatter.options_mut().set_rip_relative_addresses( Value );
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return true;
@@ -5221,7 +5074,7 @@ pub unsafe extern "C" fn Formatter_SetRipRelativeAddresses( Formatter: *mut Masm
 // 👍 | `true` | `je short 1234h`
 // _ | `false` | `je 1234h`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetShowBranchSize( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetShowBranchSize( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5231,38 +5084,38 @@ pub unsafe extern "C" fn Formatter_GetShowBranchSize( Formatter: *mut MasmFormat
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().show_branch_size();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().show_branch_size();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().show_branch_size();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().show_branch_size();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().show_branch_size();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().show_branch_size();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().show_branch_size();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().show_branch_size();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().show_branch_size();
+            value = obj.Formatter.options_mut().show_branch_size();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().show_branch_size();
+            value = obj.Formatter.options_mut().show_branch_size();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return value;
@@ -5278,7 +5131,7 @@ pub unsafe extern "C" fn Formatter_GetShowBranchSize( Formatter: *mut MasmFormat
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetShowBranchSize( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetShowBranchSize( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5287,38 +5140,38 @@ pub unsafe extern "C" fn Formatter_SetShowBranchSize( Formatter: *mut MasmFormat
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_show_branch_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_show_branch_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_show_branch_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_show_branch_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_show_branch_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_show_branch_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_show_branch_size( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_show_branch_size( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_show_branch_size( Value );
+            obj.Formatter.options_mut().set_show_branch_size( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_show_branch_size( Value );
+            obj.Formatter.options_mut().set_show_branch_size( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5331,7 +5184,7 @@ pub unsafe extern "C" fn Formatter_SetShowBranchSize( Formatter: *mut MasmFormat
 // 👍 | `true` | `vcmpnltsd xmm2,xmm6,xmm3`
 // _ | `false` | `vcmpsd xmm2,xmm6,xmm3,5`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetUsePseudoOps( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetUsePseudoOps( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5341,36 +5194,36 @@ pub unsafe extern "C" fn Formatter_GetUsePseudoOps( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().use_pseudo_ops();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().use_pseudo_ops();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().use_pseudo_ops();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().use_pseudo_ops();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().use_pseudo_ops();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().use_pseudo_ops();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().use_pseudo_ops();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().use_pseudo_ops();
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().use_pseudo_ops();
+            value = obj.Formatter.options_mut().use_pseudo_ops();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().use_pseudo_ops();
+            value = obj.Formatter.options_mut().use_pseudo_ops();
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
  
     return value;
@@ -5386,7 +5239,7 @@ pub unsafe extern "C" fn Formatter_GetUsePseudoOps( Formatter: *mut MasmFormatte
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetUsePseudoOps( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetUsePseudoOps( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5395,36 +5248,36 @@ pub unsafe extern "C" fn Formatter_SetUsePseudoOps( Formatter: *mut MasmFormatte
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_use_pseudo_ops( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_use_pseudo_ops( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_use_pseudo_ops( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_use_pseudo_ops( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_use_pseudo_ops( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_use_pseudo_ops( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_use_pseudo_ops( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_use_pseudo_ops( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_use_pseudo_ops( Value );
+            obj.Formatter.options_mut().set_use_pseudo_ops( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_use_pseudo_ops( Value );
+            obj.Formatter.options_mut().set_use_pseudo_ops( Value );
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return true;
@@ -5437,7 +5290,7 @@ pub unsafe extern "C" fn Formatter_SetUsePseudoOps( Formatter: *mut MasmFormatte
 // _ | `true` | `mov eax,[ myfield ( 12345678 ) ]`
 // 👍 | `false` | `mov eax,[ myfield ]`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetShowSymbolAddress( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetShowSymbolAddress( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5447,36 +5300,36 @@ pub unsafe extern "C" fn Formatter_GetShowSymbolAddress( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().show_symbol_address();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().show_symbol_address();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().show_symbol_address();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().show_symbol_address();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().show_symbol_address();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().show_symbol_address();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().show_symbol_address();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().show_symbol_address();
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().show_symbol_address();
+            value = obj.Formatter.options_mut().show_symbol_address();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().show_symbol_address();
+            value = obj.Formatter.options_mut().show_symbol_address();
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return value;
@@ -5493,7 +5346,7 @@ pub unsafe extern "C" fn Formatter_GetShowSymbolAddress( Formatter: *mut MasmFor
 //
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetShowSymbolAddress( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetShowSymbolAddress( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5502,36 +5355,36 @@ pub unsafe extern "C" fn Formatter_SetShowSymbolAddress( Formatter: *mut MasmFor
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_show_symbol_address( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_show_symbol_address( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_show_symbol_address( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_show_symbol_address( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_show_symbol_address( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_show_symbol_address( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_show_symbol_address( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_show_symbol_address( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_show_symbol_address( Value );
+            obj.Formatter.options_mut().set_show_symbol_address( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_show_symbol_address( Value );
+            obj.Formatter.options_mut().set_show_symbol_address( Value );
             Box::into_raw( obj );
         }
-//        _ => { return false; }
+//        _ => { return false;}
     }
 
     return true;
@@ -5544,7 +5397,7 @@ pub unsafe extern "C" fn Formatter_SetShowSymbolAddress( Formatter: *mut MasmFor
 // _ | `true` | `fadd st( 0 ),st( 3 )`
 // 👍 | `false` | `fadd st,st( 3 )`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetPreferST0( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetPreferST0( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5554,38 +5407,38 @@ pub unsafe extern "C" fn Formatter_GetPreferST0( Formatter: *mut MasmFormatter, 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().prefer_st0();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().prefer_st0();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().prefer_st0();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().prefer_st0();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().prefer_st0();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().prefer_st0();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().prefer_st0();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().prefer_st0();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().prefer_st0();
+            value = obj.Formatter.options_mut().prefer_st0();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().prefer_st0();
+            value = obj.Formatter.options_mut().prefer_st0();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -5601,7 +5454,7 @@ pub unsafe extern "C" fn Formatter_GetPreferST0( Formatter: *mut MasmFormatter, 
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetPreferST0( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetPreferST0( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5610,38 +5463,38 @@ pub unsafe extern "C" fn Formatter_SetPreferST0( Formatter: *mut MasmFormatter, 
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_prefer_st0( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_prefer_st0( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_prefer_st0( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_prefer_st0( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_prefer_st0( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_prefer_st0( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_prefer_st0( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_prefer_st0( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_prefer_st0( Value );
+            obj.Formatter.options_mut().set_prefer_st0( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_prefer_st0( Value );
+            obj.Formatter.options_mut().set_prefer_st0( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5654,7 +5507,7 @@ pub unsafe extern "C" fn Formatter_SetPreferST0( Formatter: *mut MasmFormatter, 
 // _ | `true` | `es rep add eax,ecx`
 // 👍 | `false` | `add eax,ecx`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetShowUselessPrefixes( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> bool {
+pub unsafe extern "C" fn Formatter_GetShowUselessPrefixes( Formatter: *mut u8, FormatterType: u8 ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5664,38 +5517,38 @@ pub unsafe extern "C" fn Formatter_GetShowUselessPrefixes( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = obj.options_mut().show_useless_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = obj.Formatter.options_mut().show_useless_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = obj.options_mut().show_useless_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = obj.Formatter.options_mut().show_useless_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = obj.options_mut().show_useless_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = obj.Formatter.options_mut().show_useless_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = obj.options_mut().show_useless_prefixes();
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = obj.Formatter.options_mut().show_useless_prefixes();
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = obj.options_mut().show_useless_prefixes();
+            value = obj.Formatter.options_mut().show_useless_prefixes();
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = obj.options_mut().show_useless_prefixes();
+            value = obj.Formatter.options_mut().show_useless_prefixes();
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
  
     return value;
@@ -5711,7 +5564,7 @@ pub unsafe extern "C" fn Formatter_GetShowUselessPrefixes( Formatter: *mut MasmF
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetShowUselessPrefixes( Formatter: *mut MasmFormatter, FormatterType : u8, Value : bool ) -> bool {
+pub unsafe extern "C" fn Formatter_SetShowUselessPrefixes( Formatter: *mut u8, FormatterType : u8, Value : bool ) -> bool {
     if Formatter.is_null() {
         return false;
     }
@@ -5720,38 +5573,38 @@ pub unsafe extern "C" fn Formatter_SetShowUselessPrefixes( Formatter: *mut MasmF
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_show_useless_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_show_useless_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_show_useless_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_show_useless_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_show_useless_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_show_useless_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_show_useless_prefixes( Value );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_show_useless_prefixes( Value );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_show_useless_prefixes( Value );
+            obj.Formatter.options_mut().set_show_useless_prefixes( Value );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_show_useless_prefixes( Value );
+            obj.Formatter.options_mut().set_show_useless_prefixes( Value );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5761,7 +5614,7 @@ pub unsafe extern "C" fn Formatter_SetShowUselessPrefixes( Formatter: *mut MasmF
 //
 // Default: `JB`, `CMOVB`, `SETB`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_b( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_b 
+pub unsafe extern "C" fn Formatter_GetCC_b( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_b 
     if Formatter.is_null() {
         return 0;// CC_b::b;
     }
@@ -5771,38 +5624,38 @@ pub unsafe extern "C" fn Formatter_GetCC_b( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_b() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_b() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_b() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_b() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_b() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_b() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_b() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_b() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_b() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_b() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_b() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_b() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -5815,7 +5668,7 @@ pub unsafe extern "C" fn Formatter_GetCC_b( Formatter: *mut MasmFormatter, Forma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_b( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32/*CC_b*/ ) -> bool { // FFI-Unsafe: CC_b
+pub unsafe extern "C" fn Formatter_SetCC_b( Formatter: *mut u8, FormatterType : u8, Value : u32/*CC_b*/ ) -> bool { // FFI-Unsafe: CC_b
     if Formatter.is_null() {
         return false;
     }
@@ -5824,38 +5677,38 @@ pub unsafe extern "C" fn Formatter_SetCC_b( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_b( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_b( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_b( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_b( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_b( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_b( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_b( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_b( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_b( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_b( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_b( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_b( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5865,7 +5718,7 @@ pub unsafe extern "C" fn Formatter_SetCC_b( Formatter: *mut MasmFormatter, Forma
 //
 // Default: `JAE`, `CMOVAE`, `SETAE`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_ae( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_ae
+pub unsafe extern "C" fn Formatter_GetCC_ae( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_ae
     if Formatter.is_null() {
         return 0;// CC_ae::ae;
     }
@@ -5875,38 +5728,38 @@ pub unsafe extern "C" fn Formatter_GetCC_ae( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_ae() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ae() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_ae() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ae() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_ae() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ae() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_ae() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ae() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_ae() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_ae() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_ae() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_ae() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -5919,7 +5772,7 @@ pub unsafe extern "C" fn Formatter_GetCC_ae( Formatter: *mut MasmFormatter, Form
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_ae( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_ae
+pub unsafe extern "C" fn Formatter_SetCC_ae( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_ae
     if Formatter.is_null() {
         return false;
     }
@@ -5928,38 +5781,38 @@ pub unsafe extern "C" fn Formatter_SetCC_ae( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_ae( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_ae( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_ae( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_ae( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_ae( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_ae( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_ae( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_ae( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_ae( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_ae( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_ae( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_ae( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -5969,7 +5822,7 @@ pub unsafe extern "C" fn Formatter_SetCC_ae( Formatter: *mut MasmFormatter, Form
 //
 // Default: `JE`, `CMOVE`, `SETE`, `LOOPE`, `REPE`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_e( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_e
+pub unsafe extern "C" fn Formatter_GetCC_e( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_e
     if Formatter.is_null() {
         return 0;// CC_e::e;
     }
@@ -5979,38 +5832,38 @@ pub unsafe extern "C" fn Formatter_GetCC_e( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_e() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_e() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_e() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_e() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_e() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_e() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_e() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_e() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_e() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_e() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_e() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_e() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6023,7 +5876,7 @@ pub unsafe extern "C" fn Formatter_GetCC_e( Formatter: *mut MasmFormatter, Forma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_e( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_e
+pub unsafe extern "C" fn Formatter_SetCC_e( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_e
     if Formatter.is_null() {
         return false;
     }
@@ -6032,38 +5885,38 @@ pub unsafe extern "C" fn Formatter_SetCC_e( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_e( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_e( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_e( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_e( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_e( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_e( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_e( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_e( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_e( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_e( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_e( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_e( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6073,7 +5926,7 @@ pub unsafe extern "C" fn Formatter_SetCC_e( Formatter: *mut MasmFormatter, Forma
 //
 // Default: `JNE`, `CMOVNE`, `SETNE`, `LOOPNE`, `REPNE`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_ne( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_ne
+pub unsafe extern "C" fn Formatter_GetCC_ne( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_ne
     if Formatter.is_null() {
         return 0;// CC_ne::ne;
     }
@@ -6083,38 +5936,38 @@ pub unsafe extern "C" fn Formatter_GetCC_ne( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_ne() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ne() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_ne() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ne() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_ne() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ne() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_ne() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ne() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_ne() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_ne() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_ne() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_ne() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6127,7 +5980,7 @@ pub unsafe extern "C" fn Formatter_GetCC_ne( Formatter: *mut MasmFormatter, Form
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_ne( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_ne
+pub unsafe extern "C" fn Formatter_SetCC_ne( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_ne
     if Formatter.is_null() {
         return false;
     }
@@ -6136,38 +5989,38 @@ pub unsafe extern "C" fn Formatter_SetCC_ne( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_ne( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_ne( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_ne( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_ne( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_ne( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_ne( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_ne( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_ne( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_ne( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_ne( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_ne( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_ne( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6177,7 +6030,7 @@ pub unsafe extern "C" fn Formatter_SetCC_ne( Formatter: *mut MasmFormatter, Form
 //
 // Default: `JBE`, `CMOVBE`, `SETBE`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_be( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_be
+pub unsafe extern "C" fn Formatter_GetCC_be( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_be
     if Formatter.is_null() {
         return 0;// CC_be::be;
     }
@@ -6187,38 +6040,38 @@ pub unsafe extern "C" fn Formatter_GetCC_be( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_be() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_be() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_be() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_be() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_be() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_be() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_be() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_be() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_be() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_be() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_be() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_be() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6231,7 +6084,7 @@ pub unsafe extern "C" fn Formatter_GetCC_be( Formatter: *mut MasmFormatter, Form
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_be( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_be
+pub unsafe extern "C" fn Formatter_SetCC_be( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_be
     if Formatter.is_null() {
         return false;
     }
@@ -6240,38 +6093,38 @@ pub unsafe extern "C" fn Formatter_SetCC_be( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_be( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_be( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_be( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_be( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_be( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_be( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_be( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_be( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_be( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_be( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_be( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_be( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6281,7 +6134,7 @@ pub unsafe extern "C" fn Formatter_SetCC_be( Formatter: *mut MasmFormatter, Form
 //
 // Default: `JA`, `CMOVA`, `SETA`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_a( Formatter: *mut MasmFormatter, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_a
+pub unsafe extern "C" fn Formatter_GetCC_a( Formatter: *mut u8, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_a
     if Formatter.is_null() {
         return 0;// CC_a::a;
     }
@@ -6291,38 +6144,38 @@ pub unsafe extern "C" fn Formatter_GetCC_a( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_a() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_a() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_a() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_a() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_a() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_a() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_a() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_a() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_a() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_a() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_a() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_a() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6335,7 +6188,7 @@ pub unsafe extern "C" fn Formatter_GetCC_a( Formatter: *mut MasmFormatter, Forma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_a( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_a
+pub unsafe extern "C" fn Formatter_SetCC_a( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_a
     if Formatter.is_null() {
         return false;
     }
@@ -6344,38 +6197,38 @@ pub unsafe extern "C" fn Formatter_SetCC_a( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_a( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_a( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_a( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_a( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_a( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_a( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_a( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_a( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_a( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_a( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_a( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_a( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6385,7 +6238,7 @@ pub unsafe extern "C" fn Formatter_SetCC_a( Formatter: *mut MasmFormatter, Forma
 //
 // Default: `JP`, `CMOVP`, `SETP`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_p( Formatter: *mut MasmFormatter, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_p
+pub unsafe extern "C" fn Formatter_GetCC_p( Formatter: *mut u8, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_p
     if Formatter.is_null() {
         return 0;// CC_p::p;
     }
@@ -6395,38 +6248,38 @@ pub unsafe extern "C" fn Formatter_GetCC_p( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_p() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_p() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_p() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_p() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_p() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_p() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_p() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_p() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_p() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_p() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_p() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_p() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6439,7 +6292,7 @@ pub unsafe extern "C" fn Formatter_GetCC_p( Formatter: *mut MasmFormatter, Forma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_p( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_p
+pub unsafe extern "C" fn Formatter_SetCC_p( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_p
     if Formatter.is_null() {
         return false;
     }
@@ -6448,38 +6301,38 @@ pub unsafe extern "C" fn Formatter_SetCC_p( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_p( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_p( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_p( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_p( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_p( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_p( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_p( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_p( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_p( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_p( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_p( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_p( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6489,7 +6342,7 @@ pub unsafe extern "C" fn Formatter_SetCC_p( Formatter: *mut MasmFormatter, Forma
 //
 // Default: `JNP`, `CMOVNP`, `SETNP`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_np( Formatter: *mut MasmFormatter, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_np
+pub unsafe extern "C" fn Formatter_GetCC_np( Formatter: *mut u8, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_np
     if Formatter.is_null() {
         return 0;// CC_np::np;
     }
@@ -6499,38 +6352,38 @@ pub unsafe extern "C" fn Formatter_GetCC_np( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_np() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_np() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_np() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_np() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_np() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_np() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_np() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_np() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_np() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_np() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_np() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_np() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6543,7 +6396,7 @@ pub unsafe extern "C" fn Formatter_GetCC_np( Formatter: *mut MasmFormatter, Form
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_np( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_np
+pub unsafe extern "C" fn Formatter_SetCC_np( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_np
     if Formatter.is_null() {
         return false;
     }
@@ -6552,38 +6405,38 @@ pub unsafe extern "C" fn Formatter_SetCC_np( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_np( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_np( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_np( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_np( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_np( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_np( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_np( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_np( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_np( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_np( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_np( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_np( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6593,7 +6446,7 @@ pub unsafe extern "C" fn Formatter_SetCC_np( Formatter: *mut MasmFormatter, Form
 //
 // Default: `JL`, `CMOVL`, `SETL`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_l( Formatter: *mut MasmFormatter, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_l
+pub unsafe extern "C" fn Formatter_GetCC_l( Formatter: *mut u8, FormatterType: u8 ) -> u32 { // FFI-Unsafe: CC_l
     if Formatter.is_null() {
         return 0;// CC_l::l;
     }
@@ -6603,38 +6456,38 @@ pub unsafe extern "C" fn Formatter_GetCC_l( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_l() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_l() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_l() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_l() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_l() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_l() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_l() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_l() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_l() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_l() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_l() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_l() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6647,7 +6500,7 @@ pub unsafe extern "C" fn Formatter_GetCC_l( Formatter: *mut MasmFormatter, Forma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_l( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_l
+pub unsafe extern "C" fn Formatter_SetCC_l( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_l
     if Formatter.is_null() {
         return false;
     }
@@ -6656,38 +6509,38 @@ pub unsafe extern "C" fn Formatter_SetCC_l( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_l( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_l( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_l( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_l( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_l( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_l( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_l( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_l( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_l( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_l( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_l( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_l( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6697,7 +6550,7 @@ pub unsafe extern "C" fn Formatter_SetCC_l( Formatter: *mut MasmFormatter, Forma
 //
 // Default: `JGE`, `CMOVGE`, `SETGE`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_ge( Formatter: *mut MasmFormatter, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_ge
+pub unsafe extern "C" fn Formatter_GetCC_ge( Formatter: *mut u8, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_ge
     if Formatter.is_null() {
         return 0;// CC_ge::ge;
     }
@@ -6707,38 +6560,38 @@ pub unsafe extern "C" fn Formatter_GetCC_ge( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_ge() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ge() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_ge() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ge() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_ge() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ge() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_ge() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_ge() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_ge() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_ge() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_ge() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_ge() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6751,7 +6604,7 @@ pub unsafe extern "C" fn Formatter_GetCC_ge( Formatter: *mut MasmFormatter, Form
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_ge( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_ge
+pub unsafe extern "C" fn Formatter_SetCC_ge( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_ge
     if Formatter.is_null() {
         return false;
     }
@@ -6760,38 +6613,38 @@ pub unsafe extern "C" fn Formatter_SetCC_ge( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_ge( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_ge( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_ge( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_ge( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_ge( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_ge( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_ge( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_ge( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_ge( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_ge( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_ge( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_ge( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6801,7 +6654,7 @@ pub unsafe extern "C" fn Formatter_SetCC_ge( Formatter: *mut MasmFormatter, Form
 //
 // Default: `JLE`, `CMOVLE`, `SETLE`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_le( Formatter: *mut MasmFormatter, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_le
+pub unsafe extern "C" fn Formatter_GetCC_le( Formatter: *mut u8, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_le
     if Formatter.is_null() {
         return 0;// CC_le::le;
     }
@@ -6811,38 +6664,38 @@ pub unsafe extern "C" fn Formatter_GetCC_le( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_le() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_le() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_le() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_le() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_le() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_le() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_le() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_le() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_le() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_le() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_le() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_le() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6855,7 +6708,7 @@ pub unsafe extern "C" fn Formatter_GetCC_le( Formatter: *mut MasmFormatter, Form
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_le( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_le
+pub unsafe extern "C" fn Formatter_SetCC_le( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_le
     if Formatter.is_null() {
         return false;
     }
@@ -6864,38 +6717,38 @@ pub unsafe extern "C" fn Formatter_SetCC_le( Formatter: *mut MasmFormatter, Form
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_le( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_le( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_le( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_le( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_le( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_le( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_le( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_le( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_le( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_le( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_le( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_le( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
@@ -6905,7 +6758,7 @@ pub unsafe extern "C" fn Formatter_SetCC_le( Formatter: *mut MasmFormatter, Form
 //
 // Default: `JG`, `CMOVG`, `SETG`
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_GetCC_g( Formatter: *mut MasmFormatter, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_g
+pub unsafe extern "C" fn Formatter_GetCC_g( Formatter: *mut u8, FormatterType : u8 ) -> u32 { // FFI-Unsafe: CC_g
     if Formatter.is_null() {
         return 0;// CC_g::g;
     }
@@ -6915,38 +6768,38 @@ pub unsafe extern "C" fn Formatter_GetCC_g( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            value = transmute( obj.options_mut().cc_g() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_g() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            value = transmute( obj.options_mut().cc_g() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_g() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            value = transmute( obj.options_mut().cc_g() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_g() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            value = transmute( obj.options_mut().cc_g() as u32 );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            value = transmute( obj.Formatter.options_mut().cc_g() as u32 );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            value = transmute( obj.options_mut().cc_g() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_g() as u32 );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            value = transmute( obj.options_mut().cc_g() as u32 );
+            value = transmute( obj.Formatter.options_mut().cc_g() as u32 );
             Box::into_raw( obj );
         }
  */
-        _ => { return 0; }
+        _ => { return 0;}
     }
    
     return value;
@@ -6959,7 +6812,7 @@ pub unsafe extern "C" fn Formatter_GetCC_g( Formatter: *mut MasmFormatter, Forma
 // # Arguments
 // * `value`: New value
 #[no_mangle]
-pub unsafe extern "C" fn Formatter_SetCC_g( Formatter: *mut MasmFormatter, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_h
+pub unsafe extern "C" fn Formatter_SetCC_g( Formatter: *mut u8, FormatterType : u8, Value : u32 ) -> bool { // FFI-Unsafe: CC_h
     if Formatter.is_null() {
         return false;
     }
@@ -6968,38 +6821,38 @@ pub unsafe extern "C" fn Formatter_SetCC_g( Formatter: *mut MasmFormatter, Forma
     match formatterType {
         TFormatterType::Masm |
         TFormatterType::Capstone => {
-            let mut obj = Box::from_raw( Formatter );
-            obj.options_mut().set_cc_g( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TMasmFormatter );
+            obj.Formatter.options_mut().set_cc_g( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Nasm => { 
-            let mut obj = Box::from_raw( Formatter as *mut NasmFormatter );
-            obj.options_mut().set_cc_g( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TNasmFormatter );
+            obj.Formatter.options_mut().set_cc_g( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Gas => { 
-            let mut obj = Box::from_raw( Formatter as *mut GasFormatter );
-            obj.options_mut().set_cc_g( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TGasFormatter );
+            obj.Formatter.options_mut().set_cc_g( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Intel => { 
-            let mut obj = Box::from_raw( Formatter as *mut IntelFormatter );
-            obj.options_mut().set_cc_g( transmute( Value as u8 ) );
+            let mut obj = Box::from_raw( Formatter as *mut TIntelFormatter );
+            obj.Formatter.options_mut().set_cc_g( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
 /*
         TFormatterType::Fast => { 
             let mut obj = Box::from_raw( Formatter as *mut TFastFormatter );
-            obj.options_mut().set_cc_g( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_g( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
         TFormatterType::Specialized => { 
             let mut obj = Box::from_raw( Formatter as *mut TSpecializedFormatter );
-            obj.options_mut().set_cc_g( transmute( Value as u8 ) );
+            obj.Formatter.options_mut().set_cc_g( transmute( Value as u8 ) );
             Box::into_raw( obj );
         }
  */
-        _ => { return false; }
+        _ => { return false;}
     }
 
     return true;
