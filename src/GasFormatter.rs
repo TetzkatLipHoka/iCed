@@ -2,7 +2,7 @@
     Iced (Dis)Assembler
     C-Compatible Exports
   
-    TetzkatLipHoka 2022-2024
+    TetzkatLipHoka 2022-2026
 */
 
 use iced_x86::{Instruction, Formatter, GasFormatter, Decoder};
@@ -28,15 +28,15 @@ pub extern "C" fn GasFormatter_Create( SymbolResolver : Option<TSymbolResolverCa
     if !SymbolResolver.is_none() && !OptionsProvider.is_none() {
         let symbols = Box::new( TSymbolResolver { callback:SymbolResolver, userData:UserData });
         let options = Box::new( TFormatterOptionsProvider { callback:OptionsProvider, userData:UserData });
-        Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( Some( symbols ), Some( options ) ), Output: String::new() } ) )
+        return Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( Some( symbols ), Some( options ) ), Output: String::new() } ) )
     } else if !SymbolResolver.is_none() {
         let symbols = Box::new( TSymbolResolver { callback:SymbolResolver, userData:UserData });
-        Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( Some( symbols ), None ), Output: String::new() } ) )
+        return Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( Some( symbols ), None ), Output: String::new() } ) )
     } else if !OptionsProvider.is_none() {
         let options = Box::new( TFormatterOptionsProvider { callback:OptionsProvider, userData:UserData });
-        Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( None, Some( options ) ), Output: String::new() } ) )
+        return Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( None, Some( options ) ), Output: String::new() } ) )
     } else {
-        Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( None, None ), Output: String::new() } ) )
+        return Box::into_raw( Box::new( TGasFormatter { Formatter: GasFormatter::with_options( None, None ), Output: String::new() } ) )
     }
 }
 
@@ -63,7 +63,7 @@ pub unsafe extern "C" fn GasFormatter_Format( Formatter: *mut TGasFormatter, Ins
     obj.Output.as_mut_vec().resize( newsize, 0 );    
     (*Output) = obj.Output.as_ptr();
     (*Size) = obj.Output.len();
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 }
 
 #[no_mangle]
@@ -81,8 +81,8 @@ pub unsafe extern "C" fn GasFormatter_FormatCallback( Formatter: *mut TGasFormat
     let mut obj = Box::from_raw( Formatter );
     let mut output = Box::from_raw( FormatterOutput );
     obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
-    Box::into_raw( output );
-    Box::into_raw( obj );
+    let _ = Box::into_raw( output );
+    let _ = Box::into_raw( obj );
 }
 
 // Decode and Format Instruction
@@ -107,7 +107,7 @@ pub unsafe extern "C" fn GasFormatter_DecodeFormat( Decoder: *mut Decoder, Forma
     // Decode
     let mut obj = Box::from_raw( Decoder );    
     obj.decode_out( Instruction.as_mut().unwrap() );
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 
     // Format
     let mut obj = Box::from_raw( Formatter );
@@ -117,7 +117,7 @@ pub unsafe extern "C" fn GasFormatter_DecodeFormat( Decoder: *mut Decoder, Forma
     obj.Output.as_mut_vec().resize( newsize, 0 );
     (*Output) = obj.Output.as_ptr();
     (*Size) = obj.Output.len();
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 }
 
 
@@ -139,14 +139,14 @@ pub unsafe extern "C" fn GasFormatter_DecodeFormatCallback( Decoder: *mut Decode
     // Decode
     let mut obj = Box::from_raw( Decoder );    
     obj.decode_out( Instruction.as_mut().unwrap() );
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 
     // Format
     let mut obj = Box::from_raw( Formatter );
     let mut output = Box::from_raw( FormatterOutput );
     obj.Formatter.format( Instruction.as_mut().unwrap(), output.as_mut() );
-    Box::into_raw( output );
-    Box::into_raw( obj );
+    let _ = Box::into_raw( output );
+    let _ = Box::into_raw( obj );
 }
 
 // Decode and Format Instruction until end
@@ -178,8 +178,8 @@ pub unsafe extern "C" fn GasFormatter_DecodeFormatToEnd( Decoder: *mut Decoder, 
 
         Callback.unwrap()( &mut instruction, formatter.Output.as_ptr(), formatter.Output.len(), &mut stop, UserData );
     }
-    Box::into_raw( formatter );
-    Box::into_raw( decoder );    
+    let _ = Box::into_raw( formatter );
+    let _ = Box::into_raw( decoder );    
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -198,7 +198,7 @@ pub unsafe extern "C" fn GasFormatter_GetNakedRegisters( Formatter: *mut TGasFor
 
     let value = obj.Formatter.options_mut().gas_naked_registers();
 
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
  
     return value;
 }
@@ -221,7 +221,7 @@ pub unsafe extern "C" fn GasFormatter_SetNakedRegisters( Formatter: *mut TGasFor
 
     obj.Formatter.options_mut().set_gas_naked_registers( Value );
 
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 
     return true;
 }
@@ -241,7 +241,7 @@ pub unsafe extern "C" fn GasFormatter_GetShowMnemonicSizeSuffix( Formatter: *mut
 
     let value = obj.Formatter.options_mut().gas_show_mnemonic_size_suffix();
 
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
  
     return value;
 }
@@ -264,7 +264,7 @@ pub unsafe extern "C" fn GasFormatter_SetShowMnemonicSizeSuffix( Formatter: *mut
 
     obj.Formatter.options_mut().set_gas_show_mnemonic_size_suffix( Value );
 
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 
     return true;
 }
@@ -284,7 +284,7 @@ pub unsafe extern "C" fn GasFormatter_GetSpaceAfterMemoryOperandComma( Formatter
 
     let value = obj.Formatter.options_mut().gas_space_after_memory_operand_comma();
 
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
  
     return value;
 }
@@ -307,7 +307,7 @@ pub unsafe extern "C" fn GasFormatter_SetSpaceAfterMemoryOperandComma( Formatter
 
     obj.Formatter.options_mut().set_gas_space_after_memory_operand_comma( Value );
 
-    Box::into_raw( obj );
+    let _ = Box::into_raw( obj );
 
     return true;
 }
